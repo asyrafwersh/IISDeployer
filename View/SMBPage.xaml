@@ -1,0 +1,55 @@
+<Page x:Class="SMBApp.View.SMBPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:SMBApp.View"
+      mc:Ignorable="d" 
+      d:DesignHeight="450" d:DesignWidth="800"
+      Title="SMBPage">
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" 
+                   Text="SMB Network Connection" 
+                   FontSize="24"
+                   FontWeight="Bold"
+                   Margin="0,0,0,20"/>
+
+        <TextBlock Grid.Row="1" 
+                   x:Name="StatusTextBlock"
+                   Text="Ready to connect..." 
+                   FontSize="14"
+                   Foreground="Blue"
+                   Margin="0,0,0,10"/>
+
+        <TextBlock Grid.Row="2" 
+                   x:Name="ContentTextBlock"
+                   Text="" 
+                   FontSize="12"
+                   TextWrapping="Wrap"
+                   VerticalAlignment="Top"/>
+
+        <StackPanel Grid.Row="3" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Center"
+                    Margin="0,20,0,0">
+            <Button Content="Connect" 
+                    Click="ConnectButton_Click"
+                    Width="100" 
+                    Height="30" 
+                    Margin="5"/>
+            <Button Content="Disconnect" 
+                    Click="DisconnectButton_Click"
+                    Width="100" 
+                    Height="30" 
+                    Margin="5"/>
+        </StackPanel>
+    </Grid>
+</Page>
