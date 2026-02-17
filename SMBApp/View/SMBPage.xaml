@@ -196,7 +196,8 @@
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal">
-                    <Button Content="Browse File..." 
+                    <Button x:Name="BrowseFileButton"
+                            Content="Browse File..." 
                             Click="BrowseFileButton_Click"
                             Width="120" 
                             Height="30" 

@@ -13,6 +13,11 @@ namespace SMBApp.Services
         private AppSettings? _appSettings;
 
         /// <summary>
+        /// Gets the full path to the configuration file
+        /// </summary>
+        private string ConfigFilePath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ConfigFileName);
+
+        /// <summary>
         /// Loads the application settings from appsettings.json
         /// </summary>
         public AppSettings LoadConfiguration()
@@ -24,7 +29,7 @@ namespace SMBApp.Services
 
             try
             {
-                string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ConfigFileName);
+                string configPath = ConfigFilePath;
 
                 if (!File.Exists(configPath))
                 {
@@ -52,6 +57,43 @@ namespace SMBApp.Services
         {
             var settings = LoadConfiguration();
             return settings.NetworkConfigurations;
+        }
+
+        /// <summary>
+        /// Gets the deployment settings
+        /// </summary>
+        public DeploymentSettings GetDeploymentSettings()
+        {
+            var settings = LoadConfiguration();
+            return settings.DeploymentSettings;
+        }
+
+        /// <summary>
+        /// Saves the deployment settings to appsettings.json
+        /// </summary>
+        public void SaveDeploymentSettings(DeploymentSettings deploymentSettings)
+        {
+            try
+            {
+                var settings = LoadConfiguration();
+                settings.DeploymentSettings = deploymentSettings;
+
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    PropertyNamingPolicy = null
+                };
+
+                string jsonContent = JsonSerializer.Serialize(settings, jsonOptions);
+                File.WriteAllText(ConfigFilePath, jsonContent);
+
+                // Reset cached settings so next load picks up changes
+                _appSettings = null;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to save deployment settings: {ex.Message}", ex);
+            }
         }
     }
 }

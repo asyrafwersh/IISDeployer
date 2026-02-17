@@ -16,6 +16,8 @@ namespace SMBApp.View
         private readonly ConfigurationService _configurationService;
         private string? _selectedFilePath;
         private bool _isPasswordVisible = false;
+        private bool _isConnected = false;
+        private bool _isTransferring = false;
         private CancellationTokenSource? _transferCancellationTokenSource;
 
         public SMBPage()
@@ -81,6 +83,22 @@ namespace SMBApp.View
         }
 
         /// <summary>
+        /// Updates the Transfer File button state based on connection and file selection
+        /// </summary>
+        private void UpdateTransferButtonState()
+        {
+            TransferButton.IsEnabled = _isConnected && !string.IsNullOrEmpty(_selectedFilePath) && File.Exists(_selectedFilePath) && !_isTransferring;
+        }
+
+        /// <summary>
+        /// Updates the Browse File button state based on transfer status
+        /// </summary>
+        private void UpdateBrowseButtonState()
+        {
+            BrowseFileButton.IsEnabled = !_isTransferring;
+        }
+
+        /// <summary>
         /// Connects to the SMB network share
         /// </summary>
         private async Task ConnectToSMBShareAsync()
@@ -116,20 +134,28 @@ namespace SMBApp.View
                     }
                 });
 
+                _isConnected = true;
                 StatusTextBlock.Text = $"Successfully connected to {networkPath}";
                 await LoadNetworkContentsAsync();
                 
                 // Show the content when connected
                 ContentTextBlock.Visibility = Visibility.Visible;
+                
+                // Update transfer button state
+                UpdateTransferButtonState();
             }
             catch (Exception ex)
             {
+                _isConnected = false;
                 StatusTextBlock.Text = $"Connection failed: {ex.Message}";
                 MessageBox.Show($"Failed to connect to SMB share:\n{ex.Message}", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 
                 // Hide content on connection failure
                 ContentTextBlock.Visibility = Visibility.Collapsed;
                 ContentTextBlock.Text = "";
+                
+                // Update transfer button state
+                UpdateTransferButtonState();
             }
         }
 
@@ -178,7 +204,9 @@ namespace SMBApp.View
             {
                 _selectedFilePath = openFileDialog.FileName;
                 SelectedFileTextBlock.Text = _selectedFilePath;
-                TransferButton.IsEnabled = true;
+                
+                // Update transfer button state based on connection status
+                UpdateTransferButtonState();
             }
         }
 
@@ -193,6 +221,12 @@ namespace SMBApp.View
                 return;
             }
 
+            if (!_isConnected)
+            {
+                MessageBox.Show("Please connect to the SMB share first.", "Not Connected", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             // Create a new cancellation token source for this transfer
             _transferCancellationTokenSource = new CancellationTokenSource();
 
@@ -202,8 +236,10 @@ namespace SMBApp.View
 
             try
             {
+                _isTransferring = true;
                 TransferButton.IsEnabled = false;
                 CancelTransferButton.IsEnabled = true;
+                UpdateBrowseButtonState();
                 TransferProgressBar.Visibility = Visibility.Visible;
                 TransferProgressBar.IsIndeterminate = false;
                 TransferProgressBar.Value = 0;
@@ -253,9 +289,11 @@ namespace SMBApp.View
             }
             finally
             {
+                _isTransferring = false;
                 TransferProgressBar.Value = 0;
                 TransferProgressBar.Visibility = Visibility.Collapsed;
-                TransferButton.IsEnabled = true;
+                UpdateTransferButtonState();
+                UpdateBrowseButtonState();
                 CancelTransferButton.IsEnabled = false;
                 
                 // Dispose of the cancellation token source
@@ -371,16 +409,30 @@ namespace SMBApp.View
         {
             try
             {
+                // Cancel any ongoing transfer before disconnecting
+                if (_isTransferring && _transferCancellationTokenSource != null && !_transferCancellationTokenSource.IsCancellationRequested)
+                {
+                    _transferCancellationTokenSource.Cancel();
+                    StatusTextBlock.Text = "Cancelling transfer before disconnect...";
+                    
+                    // Give a brief moment for the transfer to cancel
+                    Task.Delay(500).Wait();
+                }
+
                 string networkPath = NetworkPathTextBox.Text;
                 bool disconnected = _smbService.DisconnectFromShare(networkPath);
                 
                 if (disconnected)
                 {
+                    _isConnected = false;
                     StatusTextBlock.Text = "Disconnected successfully";
                     
                     // Hide the directories/files information when disconnected
                     ContentTextBlock.Visibility = Visibility.Collapsed;
                     ContentTextBlock.Text = "";
+                    
+                    // Disable transfer button when disconnected
+                    UpdateTransferButtonState();
                 }
                 else
                 {

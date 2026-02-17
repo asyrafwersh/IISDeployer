@@ -6,5 +6,6 @@ namespace SMBApp.Models
     public class AppSettings
     {
         public List<NetworkConfiguration> NetworkConfigurations { get; set; } = new();
+        public DeploymentSettings DeploymentSettings { get; set; } = new();
     }
 }
