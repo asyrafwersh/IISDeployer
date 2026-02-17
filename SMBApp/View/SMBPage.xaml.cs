@@ -1,7 +1,8 @@
-using System.IO;
+﻿using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
+using SMBApp.Models;
 using SMBApp.Services;
 
 namespace SMBApp.View
@@ -12,21 +13,71 @@ namespace SMBApp.View
     public partial class SMBPage : Page
     {
         private readonly SMBService _smbService;
-        private const string NetworkPath = @"\\DESKTOP-3GO5301\MiCCTV";
-        private const string Username = "mihome";
-        private const string Password = "@Kep120018";
+        private readonly ConfigurationService _configurationService;
         private string? _selectedFilePath;
+        private bool _isPasswordVisible = false;
+        private CancellationTokenSource? _transferCancellationTokenSource;
 
         public SMBPage()
         {
             InitializeComponent();
             _smbService = new SMBService();
+            _configurationService = new ConfigurationService();
             Loaded += SMBPage_Loaded;
         }
 
         private async void SMBPage_Loaded(object sender, RoutedEventArgs e)
         {
-            await ConnectToSMBShareAsync();
+            LoadNetworkConfigurations();
+            // Hide content initially
+            ContentTextBlock.Visibility = Visibility.Collapsed;
+        }
+
+        /// <summary>
+        /// Loads network configurations from appsettings.json into the ComboBox
+        /// </summary>
+        private void LoadNetworkConfigurations()
+        {
+            try
+            {
+                var configurations = _configurationService.GetNetworkConfigurations();
+                NetworkConfigComboBox.ItemsSource = configurations;
+                
+                if (configurations.Count > 0)
+                {
+                    NetworkConfigComboBox.SelectedIndex = 0;
+                }
+
+                StatusTextBlock.Text = $"Loaded {configurations.Count} saved configuration(s)";
+            }
+            catch (Exception ex)
+            {
+                StatusTextBlock.Text = $"Failed to load configurations: {ex.Message}";
+                MessageBox.Show($"Failed to load network configurations:\n{ex.Message}", "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        /// <summary>
+        /// Handles selection change in the network configuration dropdown
+        /// </summary>
+        private void NetworkConfigComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (NetworkConfigComboBox.SelectedItem is NetworkConfiguration selectedConfig)
+            {
+                NetworkPathTextBox.Text = selectedConfig.NetworkPath;
+                UsernameTextBox.Text = selectedConfig.Username;
+                
+                if (_isPasswordVisible)
+                {
+                    PasswordTextBox.Text = selectedConfig.Password;
+                }
+                else
+                {
+                    PasswordBox.Password = selectedConfig.Password;
+                }
+
+                StatusTextBlock.Text = $"Loaded configuration: {selectedConfig.Name}";
+            }
         }
 
         /// <summary>
@@ -38,14 +89,25 @@ namespace SMBApp.View
             {
                 StatusTextBlock.Text = "Connecting to SMB share...";
 
+                string networkPath = NetworkPathTextBox.Text;
+                string username = UsernameTextBox.Text;
+                string password = _isPasswordVisible ? PasswordTextBox.Text : PasswordBox.Password;
+
+                if (string.IsNullOrWhiteSpace(networkPath) || string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+                {
+                    StatusTextBlock.Text = "Please fill in all connection fields";
+                    MessageBox.Show("Please fill in all connection fields (Network Path, Username, Password)", "Missing Information", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
                 await Task.Run(() =>
                 {
-                    bool isConnected = _smbService.ConnectToShare(NetworkPath, Username, Password);
+                    bool isConnected = _smbService.ConnectToShare(networkPath, username, password);
 
                     if (isConnected)
                     {
                         // Test the connection
-                        bool isAccessible = _smbService.TestConnection(NetworkPath);
+                        bool isAccessible = _smbService.TestConnection(networkPath);
 
                         if (!isAccessible)
                         {
@@ -54,13 +116,20 @@ namespace SMBApp.View
                     }
                 });
 
-                StatusTextBlock.Text = $"Successfully connected to {NetworkPath}";
+                StatusTextBlock.Text = $"Successfully connected to {networkPath}";
                 await LoadNetworkContentsAsync();
+                
+                // Show the content when connected
+                ContentTextBlock.Visibility = Visibility.Visible;
             }
             catch (Exception ex)
             {
                 StatusTextBlock.Text = $"Connection failed: {ex.Message}";
                 MessageBox.Show($"Failed to connect to SMB share:\n{ex.Message}", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                
+                // Hide content on connection failure
+                ContentTextBlock.Visibility = Visibility.Collapsed;
+                ContentTextBlock.Text = "";
             }
         }
 
@@ -71,20 +140,25 @@ namespace SMBApp.View
         {
             try
             {
+                string networkPath = NetworkPathTextBox.Text;
+
                 await Task.Run(() =>
                 {
-                    var files = _smbService.GetFiles(NetworkPath);
-                    var directories = _smbService.GetDirectories(NetworkPath);
+                    var files = _smbService.GetFiles(networkPath);
+                    var directories = _smbService.GetDirectories(networkPath);
 
                     Dispatcher.Invoke(() =>
                     {
                         ContentTextBlock.Text = $"Directories: {directories.Length}\nFiles: {files.Length}";
+                        ContentTextBlock.Visibility = Visibility.Visible;
                     });
                 });
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Failed to load network contents:\n{ex.Message}", "Load Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                ContentTextBlock.Visibility = Visibility.Collapsed;
+                ContentTextBlock.Text = "";
             }
         }
 
@@ -119,15 +193,20 @@ namespace SMBApp.View
                 return;
             }
 
+            // Create a new cancellation token source for this transfer
+            _transferCancellationTokenSource = new CancellationTokenSource();
+
+            string networkPath = NetworkPathTextBox.Text;
+            string fileName = Path.GetFileName(_selectedFilePath);
+            string destinationPath = Path.Combine(networkPath, fileName);
+
             try
             {
                 TransferButton.IsEnabled = false;
+                CancelTransferButton.IsEnabled = true;
                 TransferProgressBar.Visibility = Visibility.Visible;
                 TransferProgressBar.IsIndeterminate = false;
                 TransferProgressBar.Value = 0;
-
-                string fileName = Path.GetFileName(_selectedFilePath);
-                string destinationPath = Path.Combine(NetworkPath, fileName);
 
                 var progress = new Progress<int>(percent =>
                 {
@@ -135,13 +214,37 @@ namespace SMBApp.View
                     StatusTextBlock.Text = $"Transferring file... {percent}%";
                 });
 
-                await CopyFileWithProgressAsync(_selectedFilePath, destinationPath, progress);
+                bool transferCompleted = await CopyFileWithProgressAsync(_selectedFilePath, destinationPath, progress, _transferCancellationTokenSource.Token);
 
-                StatusTextBlock.Text = $"File transferred successfully: {fileName}";
-                MessageBox.Show($"File '{fileName}' transferred successfully to {NetworkPath}", "Transfer Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                if (transferCompleted)
+                {
+                    StatusTextBlock.Text = $"File transferred successfully: {fileName}";
+                    MessageBox.Show($"File '{fileName}' transferred successfully to {networkPath}", "Transfer Complete", MessageBoxButton.OK, MessageBoxImage.Information);
 
-                // Refresh the network contents
-                await LoadNetworkContentsAsync();
+                    // Refresh the network contents
+                    await LoadNetworkContentsAsync();
+                }
+                else
+                {
+                    // Transfer was cancelled
+                    StatusTextBlock.Text = "File transfer cancelled by user";
+                    
+                    // Clean up the partial file
+                    try
+                    {
+                        if (File.Exists(destinationPath))
+                        {
+                            File.Delete(destinationPath);
+                            StatusTextBlock.Text = "File transfer cancelled - partial file deleted";
+                        }
+                    }
+                    catch (Exception deleteEx)
+                    {
+                        StatusTextBlock.Text = $"Transfer cancelled but failed to delete partial file: {deleteEx.Message}";
+                    }
+
+                    MessageBox.Show("File transfer was cancelled.", "Transfer Cancelled", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
             }
             catch (Exception ex)
             {
@@ -153,19 +256,39 @@ namespace SMBApp.View
                 TransferProgressBar.Value = 0;
                 TransferProgressBar.Visibility = Visibility.Collapsed;
                 TransferButton.IsEnabled = true;
+                CancelTransferButton.IsEnabled = false;
+                
+                // Dispose of the cancellation token source
+                _transferCancellationTokenSource?.Dispose();
+                _transferCancellationTokenSource = null;
             }
         }
 
         /// <summary>
-        /// Copies a file with progress reporting
+        /// Cancels the current file transfer operation
+        /// </summary>
+        private void CancelTransferButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_transferCancellationTokenSource != null && !_transferCancellationTokenSource.IsCancellationRequested)
+            {
+                _transferCancellationTokenSource.Cancel();
+                StatusTextBlock.Text = "Cancelling transfer...";
+                CancelTransferButton.IsEnabled = false;
+            }
+        }
+
+        /// <summary>
+        /// Copies a file with progress reporting and cancellation support
         /// </summary>
         /// <param name="sourceFile">Source file path</param>
         /// <param name="destinationFile">Destination file path</param>
         /// <param name="progress">Progress reporter for percentage updates</param>
+        /// <param name="cancellationToken">Cancellation token to cancel the operation</param>
         /// <param name="bufferSize">Buffer size for copying (default 1MB)</param>
-        private async Task CopyFileWithProgressAsync(string sourceFile, string destinationFile, IProgress<int> progress, int bufferSize = 1024 * 1024)
+        /// <returns>True if transfer completed successfully, False if cancelled</returns>
+        private async Task<bool> CopyFileWithProgressAsync(string sourceFile, string destinationFile, IProgress<int> progress, CancellationToken cancellationToken, int bufferSize = 1024 * 1024)
         {
-            await Task.Run(() =>
+            return await Task.Run(() =>
             {
                 var fileInfo = new FileInfo(sourceFile);
                 long totalBytes = fileInfo.Length;
@@ -180,6 +303,12 @@ namespace SMBApp.View
 
                     while ((bytesRead = sourceStream.Read(buffer, 0, buffer.Length)) > 0)
                     {
+                        // Check for cancellation before writing
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            return false; // Transfer cancelled
+                        }
+
                         destinationStream.Write(buffer, 0, bytesRead);
                         totalBytesRead += bytesRead;
 
@@ -193,8 +322,38 @@ namespace SMBApp.View
                             lastReportedProgress = percentComplete;
                         }
                     }
+
+                    // Ensure all data is written to disk
+                    destinationStream.Flush();
                 }
-            });
+
+                return true; // Transfer completed successfully
+            }, cancellationToken);
+        }
+
+        /// <summary>
+        /// Toggles password visibility between hidden and visible
+        /// </summary>
+        private void TogglePasswordButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isPasswordVisible)
+            {
+                // Hide password
+                PasswordBox.Password = PasswordTextBox.Text;
+                PasswordBox.Visibility = Visibility.Visible;
+                PasswordTextBox.Visibility = Visibility.Collapsed;
+                EyeIcon.Text = "👁";
+                _isPasswordVisible = false;
+            }
+            else
+            {
+                // Show password
+                PasswordTextBox.Text = PasswordBox.Password;
+                PasswordBox.Visibility = Visibility.Collapsed;
+                PasswordTextBox.Visibility = Visibility.Visible;
+                EyeIcon.Text = "🙈";
+                _isPasswordVisible = true;
+            }
         }
 
         /// <summary>
@@ -212,8 +371,21 @@ namespace SMBApp.View
         {
             try
             {
-                bool disconnected = _smbService.DisconnectFromShare(NetworkPath);
-                StatusTextBlock.Text = disconnected ? "Disconnected successfully" : "Disconnect failed";
+                string networkPath = NetworkPathTextBox.Text;
+                bool disconnected = _smbService.DisconnectFromShare(networkPath);
+                
+                if (disconnected)
+                {
+                    StatusTextBlock.Text = "Disconnected successfully";
+                    
+                    // Hide the directories/files information when disconnected
+                    ContentTextBlock.Visibility = Visibility.Collapsed;
+                    ContentTextBlock.Text = "";
+                }
+                else
+                {
+                    StatusTextBlock.Text = "Disconnect failed";
+                }
             }
             catch (Exception ex)
             {
