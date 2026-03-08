@@ -2,10 +2,10 @@
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
-using SMBApp.Models;
-using SMBApp.Services;
+using IISDeployer.Models;
+using IISDeployer.Services;
 
-namespace SMBApp.View
+namespace IISDeployer.View
 {
     /// <summary>
     /// Interaction logic for SMBPage.xaml

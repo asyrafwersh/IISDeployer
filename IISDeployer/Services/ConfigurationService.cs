@@ -1,8 +1,8 @@
 ﻿using System.IO;
 using System.Text.Json;
-using SMBApp.Models;
+using IISDeployer.Models;
 
-namespace SMBApp.Services
+namespace IISDeployer.Services
 {
     /// <summary>
     /// Service for loading and managing application configuration.

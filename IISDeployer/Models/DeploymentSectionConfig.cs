@@ -1,4 +1,4 @@
-namespace SMBApp.Models
+namespace IISDeployer.Models
 {
     /// <summary>
     /// Represents a configurable deployment section that can be dynamically added per connection.

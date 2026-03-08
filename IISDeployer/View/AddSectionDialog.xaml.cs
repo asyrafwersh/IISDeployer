@@ -1,7 +1,7 @@
 using System.Windows;
-using SMBApp.Models;
+using IISDeployer.Models;
 
-namespace SMBApp.View
+namespace IISDeployer.View
 {
     /// <summary>
     /// Dialog to collect section details when adding a new deployment section

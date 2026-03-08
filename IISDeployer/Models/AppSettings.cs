@@ -1,4 +1,4 @@
-namespace SMBApp.Models
+namespace IISDeployer.Models
 {
     /// <summary>
     /// Root configuration model for appsettings.json

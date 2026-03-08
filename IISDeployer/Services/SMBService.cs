@@ -3,7 +3,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Security;
 
-namespace SMBApp.Services
+namespace IISDeployer.Services
 {
     /// <summary>
     /// Service for connecting to SMB network shares

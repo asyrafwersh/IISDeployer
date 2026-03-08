@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace SMBApp.Models
+namespace IISDeployer.Models
 {
     /// <summary>
     /// Represents a network configuration with connection details

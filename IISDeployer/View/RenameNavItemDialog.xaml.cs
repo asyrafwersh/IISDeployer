@@ -1,6 +1,6 @@
 using System.Windows;
 
-namespace SMBApp.View
+namespace IISDeployer.View
 {
     /// <summary>
     /// Simple dialog for renaming a navigation tab label.

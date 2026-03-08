@@ -1,11 +1,11 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-using SMBApp.Models;
-using SMBApp.Services;
-using SMBApp.View.Controls;
+using IISDeployer.Models;
+using IISDeployer.Services;
+using IISDeployer.View.Controls;
 
-namespace SMBApp.View
+namespace IISDeployer.View
 {
     /// <summary>
     /// A configurable deployment page that uses dynamic, tabbed DeploymentSectionControls.

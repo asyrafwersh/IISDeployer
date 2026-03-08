@@ -1,4 +1,4 @@
-<Window x:Class="SMBApp.View.AddSectionDialog"
+<Window x:Class="IISDeployer.View.AddSectionDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Add Deployment Section" Height="300" Width="420"

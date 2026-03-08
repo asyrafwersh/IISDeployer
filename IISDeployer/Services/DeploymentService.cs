@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 
-namespace SMBApp.Services
+namespace IISDeployer.Services
 {
     /// <summary>
     /// Service for handling deployment operations (copy, zip, transfer, overwrite)

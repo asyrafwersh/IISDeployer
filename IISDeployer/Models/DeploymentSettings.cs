@@ -1,4 +1,4 @@
-namespace SMBApp.Models
+namespace IISDeployer.Models
 {
     /// <summary>
     /// Represents the deployment settings for Frontend and API

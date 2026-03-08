@@ -3,10 +3,10 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
-using SMBApp.Models;
-using SMBApp.Services;
+using IISDeployer.Models;
+using IISDeployer.Services;
 
-namespace SMBApp.View.Controls
+namespace IISDeployer.View.Controls
 {
     /// <summary>
     /// Represents a selected file or folder item for display in the section

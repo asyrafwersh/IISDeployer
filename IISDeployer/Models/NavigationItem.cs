@@ -1,4 +1,4 @@
-namespace SMBApp.Models
+namespace IISDeployer.Models
 {
     /// <summary>
     /// Represents a configurable navigation tab in the main window header bar.

@@ -1,10 +1,10 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
-using SMBApp.Models;
-using SMBApp.Services;
+using IISDeployer.Models;
+using IISDeployer.Services;
 
-namespace SMBApp.View
+namespace IISDeployer.View
 {
     /// <summary>
     /// Settings page for managing AppSettings (network configurations and deployment sections) via UI.

@@ -1,10 +1,10 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using SMBApp.Services;
-using SMBApp.View;
+using IISDeployer.Services;
+using IISDeployer.View;
 
-namespace SMBApp
+namespace IISDeployer
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml

@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace SMBApp.Services
+namespace IISDeployer.Services
 {
     /// <summary>
     /// Holds the live status of an IIS website and its application pool

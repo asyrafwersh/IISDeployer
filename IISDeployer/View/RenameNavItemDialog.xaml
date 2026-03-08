@@ -1,4 +1,4 @@
-<Window x:Class="SMBApp.View.RenameNavItemDialog"
+<Window x:Class="IISDeployer.View.RenameNavItemDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Rename Navigation Tab"
