@@ -49,9 +49,116 @@ The tool is especially useful for teams that manage multiple environments and ne
 
 ### Prerequisites
 
+#### Client Machine (where IISDeployer runs)
 - Windows OS
 - .NET Framework / .NET (WPF)
-- Access to a target IIS server via SMB network share
+- Network access to the target IIS server
+
+#### Remote/Target Server Requirements
+
+##### 1. SMB v2/v3 Must Be Enabled
+IISDeployer uses SMB for file transfers. SMB v2 or v3 must be enabled on the **target server**.
+
+To check and enable SMB v2/v3 on the server, run the following in **PowerShell (as Administrator)**:
+
+```powershell
+# Check current SMB v2 status
+Get-SmbServerConfiguration | Select-Object EnableSMB2Protocol
+
+# Enable SMB v2/v3 if disabled
+Set-SmbServerConfiguration -EnableSMB2Protocol $true -Force
+```
+
+Also ensure the **File and Printer Sharing** firewall rule is enabled:
+
+```powershell
+# Enable SMB through Windows Firewall
+netsh advfirewall firewall set rule group="File and Printer Sharing" new enable=Yes
+```
+
+> ⚠️ SMB v1 is deprecated and insecure — IISDeployer requires SMB v2 or v3.
+
+---
+
+##### 2. Remote PowerShell Must Be Enabled
+IISDeployer uses **WinRM (Windows Remote Management)** to remotely manage IIS websites and application pools on the target server. The target server must be configured to accept remote PowerShell connections.
+
+**On the Target Server — run PowerShell as Administrator:**
+
+**Step 1: Enable WinRM service**
+```powershell
+Enable-PSRemoting -Force
+```
+This command:
+- Starts and configures the WinRM service
+- Sets WinRM to start automatically
+- Creates a firewall exception for WinRM (port 5985 for HTTP, 5986 for HTTPS)
+
+**Step 2: Verify WinRM is running**
+```powershell
+Get-Service WinRM
+```
+The status should show `Running`.
+
+**Step 3: Allow the client machine as a trusted host** *(if not on a domain)*
+
+If the client and server are in a **Workgroup** (not domain-joined), you need to add the client machine to the trusted hosts list on the server:
+
+```powershell
+# Replace <ClientMachineNameOrIP> with the actual client machine name or IP
+Set-Item WSMan:\localhost\Client\TrustedHosts -Value "<ClientMachineNameOrIP>" -Force
+
+# Or to trust ALL hosts (less secure, use only in isolated/trusted networks):
+Set-Item WSMan:\localhost\Client\TrustedHosts -Value "*" -Force
+```
+
+**Step 4: Verify the trusted hosts list**
+```powershell
+Get-Item WSMan:\localhost\Client\TrustedHosts
+```
+
+**Step 5: Test remote PowerShell connection from the client machine**
+
+From the **client machine**, run:
+```powershell
+# Test connection to the remote server
+Test-WsMan -ComputerName <ServerNameOrIP>
+
+# Or test with credentials
+$cred = Get-Credential
+Invoke-Command -ComputerName <ServerNameOrIP> -Credential $cred -ScriptBlock { hostname }
+```
+
+If the connection succeeds, the remote server's hostname will be returned.
+
+---
+
+##### 3. IIS Management Scripts / WebAdministration Module
+The target server must have the IIS `WebAdministration` PowerShell module available (installed with IIS):
+
+```powershell
+# Verify WebAdministration module is available on the server
+Get-Module -ListAvailable -Name WebAdministration
+```
+
+If not available, install IIS Management Tools:
+```powershell
+Install-WindowsFeature -Name Web-Mgmt-Tools -IncludeManagementTools
+```
+
+---
+
+##### Quick Checklist — Target Server Setup
+
+| Requirement | Command to Verify |
+|---|---|
+| SMB v2/v3 Enabled | `Get-SmbServerConfiguration \| Select EnableSMB2Protocol` |
+| WinRM Service Running | `Get-Service WinRM` |
+| PSRemoting Enabled | `Test-WsMan -ComputerName localhost` |
+| Firewall Rule (WinRM) | `Get-NetFirewallRule -Name "WINRM-HTTP-In-TCP*"` |
+| WebAdministration Module | `Get-Module -ListAvailable -Name WebAdministration` |
+
+---
 
 ### Installation
 
