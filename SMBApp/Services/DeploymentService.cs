@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 
@@ -8,6 +9,9 @@ namespace SMBApp.Services
     /// </summary>
     public class DeploymentService
     {
+        private string? _username;
+        private string? _password;
+
         /// <summary>
         /// Gets the output folder path within the application directory
         /// </summary>
@@ -17,6 +21,15 @@ namespace SMBApp.Services
         /// Gets the backup settings folder path within the application directory
         /// </summary>
         public string BackupSettingsFolder => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Backup settings");
+
+        /// <summary>
+        /// Sets the credentials to use for remote PowerShell operations
+        /// </summary>
+        public void SetCredentials(string username, string password)
+        {
+            _username = username;
+            _password = password;
+        }
 
         /// <summary>
         /// Ensures the Output and Backup settings folders exist
@@ -35,6 +48,26 @@ namespace SMBApp.Services
         {
             var now = DateTime.Now;
             return $"Frontend{now:HHmm}_{now:ddMMyyyy}";
+        }
+
+        /// <summary>
+        /// Generates a deployment folder name based on current date/time
+        /// e.g., API1430_17022026
+        /// </summary>
+        public string GenerateAPIFolderName()
+        {
+            var now = DateTime.Now;
+            return $"API{now:HHmm}_{now:ddMMyyyy}";
+        }
+
+        /// <summary>
+        /// Generates a deployment folder name for any section key
+        /// e.g., Scheduler1430_17022026
+        /// </summary>
+        public string GenerateSectionFolderName(string sectionKey)
+        {
+            var now = DateTime.Now;
+            return $"{sectionKey}{now:HHmm}_{now:ddMMyyyy}";
         }
 
         /// <summary>
@@ -104,18 +137,39 @@ namespace SMBApp.Services
         }
 
         /// <summary>
-        /// Zips a folder into a .zip file with the same name
+        /// Zips a folder into a .zip file with the same name, reporting progress as a percentage.
         /// </summary>
         /// <param name="folderPath">Folder to zip</param>
-        /// <returns>Path to the created zip file</returns>
-        public string ZipFolder(string folderPath)
+        /// <param name="progress">Progress reporter (0-100 percentage)</param>
+        public string ZipFolder(string folderPath, IProgress<(int Percent, string FileName)>? progress = null)
         {
             string zipPath = folderPath + ".zip";
 
             if (File.Exists(zipPath))
                 File.Delete(zipPath);
 
-            ZipFile.CreateFromDirectory(folderPath, zipPath, CompressionLevel.Optimal, false);
+            if (progress == null)
+            {
+                ZipFile.CreateFromDirectory(folderPath, zipPath, CompressionLevel.Optimal, false);
+                return zipPath;
+            }
+
+            // Enumerate all files for progress tracking
+            var allFiles = Directory.GetFiles(folderPath, "*", SearchOption.AllDirectories);
+            int totalFiles = allFiles.Length;
+            int processedFiles = 0;
+
+            using var archive = ZipFile.Open(zipPath, ZipArchiveMode.Create);
+            foreach (var file in allFiles)
+            {
+                string entryName = Path.GetRelativePath(folderPath, file);
+                archive.CreateEntryFromFile(file, entryName, CompressionLevel.Optimal);
+
+                processedFiles++;
+                int percent = totalFiles > 0 ? (int)((double)processedFiles / totalFiles * 100) : 100;
+                progress.Report((percent, Path.GetFileName(file)));
+            }
+
             return zipPath;
         }
 
@@ -169,16 +223,186 @@ namespace SMBApp.Services
         }
 
         /// <summary>
-        /// Extracts a zip file on the remote path
+        /// Extracts a zip file on the remote path using PowerShell with WinRM over HTTP,
+        /// streaming per-file progress back via the <paramref name="progress"/> callback.
         /// </summary>
-        /// <param name="zipFilePath">Full path to the zip file</param>
-        /// <param name="extractToFolder">Folder to extract into</param>
-        public void ExtractZip(string zipFilePath, string extractToFolder)
+        /// <param name="zipFilePath">Full UNC path to the zip file</param>
+        /// <param name="extractToFolder">Full UNC path to extract into</param>
+        /// <param name="progress">Reports (Percent, FileName) for each extracted file</param>
+        public async Task ExtractZipAsync(string zipFilePath, string extractToFolder, IProgress<(int Percent, string FileName)>? progress = null)
         {
-            if (Directory.Exists(extractToFolder))
-                Directory.Delete(extractToFolder, true);
+            if (string.IsNullOrEmpty(_username) || string.IsNullOrEmpty(_password))
+            {
+                throw new InvalidOperationException("Credentials not set. Call SetCredentials() first.");
+            }
 
-            ZipFile.ExtractToDirectory(zipFilePath, extractToFolder);
+            string serverName = ExtractServerNameFromPath(zipFilePath);
+
+            // PowerShell script that extracts file-by-file and writes progress lines
+            // in the format "PROGRESS:<percent>|<filename>" so we can parse them.
+            // Uses single-quoted concatenation to avoid escaping issues when the command
+            // passes through C# string interpolation and the -Command argument.
+            string psCommand = $@"
+                if (Test-Path '{extractToFolder}') {{
+                    Remove-Item -Path '{extractToFolder}' -Recurse -Force
+                }}
+                New-Item -Path '{extractToFolder}' -ItemType Directory -Force | Out-Null
+
+                Add-Type -AssemblyName System.IO.Compression.FileSystem
+                $zip = [System.IO.Compression.ZipFile]::OpenRead('{zipFilePath}')
+                try {{
+                    $totalEntries = $zip.Entries.Count
+                    $current = 0
+                    foreach ($entry in $zip.Entries) {{
+                        $current++
+                        $destPath = Join-Path '{extractToFolder}' $entry.FullName
+                        $destDir = Split-Path $destPath -Parent
+                        if (-not (Test-Path $destDir)) {{
+                            New-Item -Path $destDir -ItemType Directory -Force | Out-Null
+                        }}
+                        if ($entry.FullName -notmatch '/$') {{
+                            [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $destPath, $true)
+                        }}
+                        $pct = [math]::Floor(($current / $totalEntries) * 100)
+                        Write-Output ('PROGRESS:' + $pct + '|' + $entry.FullName)
+                    }}
+                }} finally {{
+                    $zip.Dispose()
+                }}
+            ";
+
+            if (progress == null)
+            {
+                await RunRemotePowerShellCommandAsync(serverName, psCommand);
+                return;
+            }
+
+            await RunRemotePowerShellWithProgressAsync(serverName, psCommand, progress);
+        }
+
+        /// <summary>
+        /// Runs a remote PowerShell command and streams stdout line-by-line,
+        /// parsing lines matching "PROGRESS:&lt;percent&gt;|&lt;filename&gt;" into the progress callback.
+        /// </summary>
+        private async Task RunRemotePowerShellWithProgressAsync(
+            string serverName,
+            string command,
+            IProgress<(int Percent, string FileName)> progress)
+        {
+            await Task.Run(() =>
+            {
+                string escapedPassword = _password!.Replace("'", "''").Replace("$", "`$").Replace("`", "``");
+
+                string fullScript = $@"
+                    $securePassword = ConvertTo-SecureString '{escapedPassword}' -AsPlainText -Force
+                    $credential = New-Object System.Management.Automation.PSCredential('{_username}', $securePassword)
+
+                    $sessionOption = New-PSSessionOption -SkipCACheck -SkipCNCheck -SkipRevocationCheck
+
+                    Invoke-Command -ComputerName {serverName} -Credential $credential -SessionOption $sessionOption -ScriptBlock {{
+                        {command}
+                    }}
+                ";
+
+                var processInfo = new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -Command \"{fullScript.Replace("\"", "`\"")}\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using var process = Process.Start(processInfo)
+                    ?? throw new InvalidOperationException("Failed to start PowerShell process");
+
+                // Read stdout line-by-line for real-time progress
+                string? line;
+                string lastError = string.Empty;
+                while ((line = process.StandardOutput.ReadLine()) != null)
+                {
+                    if (line.StartsWith("PROGRESS:"))
+                    {
+                        // Parse "PROGRESS:<percent>|<filename>"
+                        string payload = line["PROGRESS:".Length..];
+                        int pipeIndex = payload.IndexOf('|');
+                        if (pipeIndex > 0 &&
+                            int.TryParse(payload[..pipeIndex], out int percent))
+                        {
+                            string fileName = payload[(pipeIndex + 1)..];
+                            progress.Report((percent, fileName));
+                        }
+                    }
+                }
+
+                lastError = process.StandardError.ReadToEnd();
+                process.WaitForExit();
+
+                if (process.ExitCode != 0 && !string.IsNullOrWhiteSpace(lastError))
+                    throw new InvalidOperationException($"PowerShell command failed: {lastError}");
+            });
+        }
+
+        /// <summary>
+        /// Runs a PowerShell command on a remote server using WinRM over HTTP with credentials
+        /// </summary>
+        private async Task<string> RunRemotePowerShellCommandAsync(string serverName, string command)
+        {
+            return await Task.Run(() =>
+            {
+                // Escape special characters in password for PowerShell
+                string escapedPassword = _password!.Replace("'", "''").Replace("$", "`$").Replace("`", "``");
+                
+                // Build the PowerShell script with credential creation and remote execution
+                string fullScript = $@"
+                    $securePassword = ConvertTo-SecureString '{escapedPassword}' -AsPlainText -Force
+                    $credential = New-Object System.Management.Automation.PSCredential('{_username}', $securePassword)
+                    
+                    $sessionOption = New-PSSessionOption -SkipCACheck -SkipCNCheck -SkipRevocationCheck
+                    
+                    Invoke-Command -ComputerName {serverName} -Credential $credential -SessionOption $sessionOption -ScriptBlock {{
+                        {command}
+                    }}
+                ";
+
+                var processInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -Command \"{fullScript.Replace("\"", "`\"")}\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using var process = System.Diagnostics.Process.Start(processInfo)
+                    ?? throw new InvalidOperationException("Failed to start PowerShell process");
+
+                string output = process.StandardOutput.ReadToEnd();
+                string error = process.StandardError.ReadToEnd();
+                process.WaitForExit();
+
+                if (process.ExitCode != 0 && !string.IsNullOrWhiteSpace(error))
+                {
+                    throw new InvalidOperationException($"PowerShell command failed: {error}");
+                }
+
+                return output;
+            });
+        }
+
+        /// <summary>
+        /// Extracts server name from a UNC path (e.g., \\SERVER\Share\file.zip -> SERVER)
+        /// </summary>
+        private static string ExtractServerNameFromPath(string uncPath)
+        {
+            if (string.IsNullOrEmpty(uncPath) || !uncPath.StartsWith(@"\\"))
+                throw new ArgumentException("Path must be a UNC path starting with \\\\", nameof(uncPath));
+
+            string withoutPrefix = uncPath[2..];
+            int slashIndex = withoutPrefix.IndexOf('\\');
+            return slashIndex > 0 ? withoutPrefix[..slashIndex] : withoutPrefix;
         }
 
         /// <summary>
@@ -201,20 +425,43 @@ namespace SMBApp.Services
         /// <summary>
         /// Overwrites the contents of the IIS website folder with the unzipped deployment contents
         /// </summary>
-        public void OverwriteWebsiteContents(string sourceFolder, string websiteFolder)
+        /// <param name="sourceFolder">Source folder (UNC path)</param>
+        /// <param name="websiteFolder">Website folder (local path on remote server)</param>
+        public async Task OverwriteWebsiteContentsAsync(string sourceFolder, string websiteFolder)
         {
-            // Copy all files and directories from source to website folder
-            foreach (var file in Directory.GetFiles(sourceFolder, "*", SearchOption.AllDirectories))
+            if (string.IsNullOrEmpty(_username) || string.IsNullOrEmpty(_password))
             {
-                string relativePath = Path.GetRelativePath(sourceFolder, file);
-                string destFile = Path.Combine(websiteFolder, relativePath);
-                string? destDir = Path.GetDirectoryName(destFile);
-
-                if (destDir != null)
-                    Directory.CreateDirectory(destDir);
-
-                File.Copy(file, destFile, true);
+                throw new InvalidOperationException("Credentials not set. Call SetCredentials() first.");
             }
+
+            // Extract server name from source folder UNC path
+            string serverName = ExtractServerNameFromPath(sourceFolder);
+
+            // PowerShell command to copy files from source to website folder
+            string psCommand = $@"
+                $sourceFolder = '{sourceFolder}'
+                $websiteFolder = '{websiteFolder}'
+                
+                # Get all files from source folder recursively
+                $files = Get-ChildItem -Path $sourceFolder -Recurse -File
+                
+                foreach ($file in $files) {{
+                    # Calculate relative path
+                    $relativePath = $file.FullName.Substring($sourceFolder.Length).TrimStart('\')
+                    $destFile = Join-Path -Path $websiteFolder -ChildPath $relativePath
+                    $destDir = Split-Path -Path $destFile -Parent
+                    
+                    # Create destination directory if it doesn't exist
+                    if (-not (Test-Path -Path $destDir)) {{
+                        New-Item -Path $destDir -ItemType Directory -Force | Out-Null
+                    }}
+                    
+                    # Copy file with overwrite
+                    Copy-Item -Path $file.FullName -Destination $destFile -Force
+                }}
+            ";
+
+            await RunRemotePowerShellCommandAsync(serverName, psCommand);
         }
 
         /// <summary>

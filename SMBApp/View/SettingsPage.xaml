@@ -1,0 +1,195 @@
+<Page x:Class="SMBApp.View.SettingsPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      mc:Ignorable="d" 
+      d:DesignHeight="900" d:DesignWidth="1400"
+      Title="Settings">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- ===== PAGE TITLE ===== -->
+            <TextBlock Grid.Row="0" Text="⚙ Application Settings" 
+                       FontSize="24" FontWeight="Bold" Margin="0,0,0,16"/>
+
+            <!-- ===== MAIN CONTENT ===== -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="300"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="1*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- ===== LEFT: Network Configuration List ===== -->
+                <GroupBox Grid.Column="0" Header="Network Configurations" Padding="8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <ListBox Grid.Row="0" x:Name="ConfigListBox"
+                                 DisplayMemberPath="Name"
+                                 SelectionChanged="ConfigListBox_SelectionChanged"
+                                 MinHeight="300"/>
+
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button Content="➕ Add" Click="AddConfigButton_Click"
+                                    Width="80" Height="28" Margin="0,0,6,0"
+                                    Background="#FF4CAF50" Foreground="White" FontWeight="SemiBold"/>
+                            <Button Content="🗑 Delete" Click="DeleteConfigButton_Click"
+                                    Width="80" Height="28" Margin="0,0,6,0"
+                                    Background="#FFFBE9E7" Foreground="#FFD32F2F"
+                                    FontWeight="SemiBold" BorderBrush="#FFEF9A9A"/>
+                            <Button Content="📋 Duplicate" Click="DuplicateConfigButton_Click"
+                                    Width="90" Height="28"
+                                    FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Grid>
+                </GroupBox>
+
+                <!-- ===== RIGHT: Edit Panel ===== -->
+                <GroupBox Grid.Column="2" x:Name="EditPanel" Header="Edit Configuration" Padding="12"
+                          IsEnabled="False" Margin="0,0,423,0">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+
+                            <!-- Connection Details -->
+                            <TextBlock Text="Connection Details" FontSize="15" FontWeight="Bold" Margin="0,0,0,10"/>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" 
+                                           VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" x:Name="EditNameTextBox"
+                                         Height="28" VerticalContentAlignment="Center" Margin="0,0,0,8"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Network Path:" 
+                                           VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" x:Name="EditNetworkPathTextBox"
+                                         Height="28" VerticalContentAlignment="Center" Margin="0,0,0,8"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Username:" 
+                                           VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" x:Name="EditUsernameTextBox"
+                                         Height="28" VerticalContentAlignment="Center" Margin="0,0,0,8"/>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Password:" 
+                                           VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                <Grid Grid.Row="3" Grid.Column="1" Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <PasswordBox Grid.Column="0" x:Name="EditPasswordBox"
+                                                 Height="28" VerticalContentAlignment="Center"/>
+                                    <TextBox Grid.Column="0" x:Name="EditPasswordTextBox"
+                                             Height="28" VerticalContentAlignment="Center" Visibility="Collapsed"/>
+                                    <Button Grid.Column="1" Width="30" Height="28" Margin="5,0,0,0"
+                                            Click="ToggleEditPasswordButton_Click" ToolTip="Show/Hide">
+                                        <TextBlock x:Name="EditEyeIcon" Text="👁" FontSize="16"/>
+                                    </Button>
+                                </Grid>
+                            </Grid>
+
+                            <Separator Margin="0,12,0,12"/>
+
+                            <!-- Deployment Sections -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Deployment Sections" 
+                                           FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                    <Button Content="➕ Add Section" Click="AddSectionToConfigButton_Click"
+                                            Width="120" Height="26" Margin="0,0,6,0"
+                                            Background="#FF1976D2" Foreground="White" FontWeight="SemiBold"/>
+                                    <Button Content="🗑 Remove" Click="RemoveSectionFromConfigButton_Click"
+                                            Width="90" Height="26"
+                                            Background="#FFFBE9E7" Foreground="#FFD32F2F"
+                                            FontWeight="SemiBold" BorderBrush="#FFEF9A9A"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <TabControl x:Name="SectionsTabControl" Margin="0,8,0,0" MinHeight="280">
+                                <!-- Tabs are populated dynamically -->
+                            </TabControl>
+
+                            <Separator Margin="0,16,0,12"/>
+
+                            <!-- ===== NAVIGATION TAB SETTINGS ===== -->
+                            <TextBlock Text="Navigation Bar Tabs" FontSize="15" FontWeight="Bold" Margin="0,0,0,8"/>
+                            <TextBlock Text="Rename tabs or reorder them. Changes apply after saving."
+                                       Foreground="#FF666666" FontSize="12" Margin="0,0,0,10"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <ListBox Grid.Column="0" x:Name="NavItemsListBox"
+                                         MinHeight="140" MaxHeight="200"
+                                         DisplayMemberPath="Label"
+                                         SelectionMode="Single"/>
+
+                                <StackPanel Grid.Column="1" Orientation="Vertical"
+                                            Margin="8,0,0,0" VerticalAlignment="Top">
+                                    <Button Content="▲ Up"   Click="NavItemMoveUp_Click"
+                                            Width="70" Height="28" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                    <Button Content="▼ Down" Click="NavItemMoveDown_Click"
+                                            Width="70" Height="28" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                    <Button Content="✏ Rename" Click="NavItemRename_Click"
+                                            Width="70" Height="28" FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Button Content="💾 Save Nav Tabs" Click="SaveNavItemsButton_Click"
+                                    Width="160" Height="30" HorizontalAlignment="Left"
+                                    Margin="0,8,0,0"
+                                    Background="#FF1976D2" Foreground="White" FontWeight="SemiBold"/>
+
+                            <Separator Margin="0,16,0,12"/>
+
+                            <!-- Save Button -->
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="💾 Save Configuration" Click="SaveConfigButton_Click"
+                                        Width="180" Height="35"
+                                        Background="#FF4CAF50" Foreground="White" FontWeight="SemiBold"
+                                        Margin="0,0,8,0"/>
+                                <Button Content="↩ Revert Changes" Click="RevertChangesButton_Click"
+                                        Width="150" Height="35" FontWeight="SemiBold"/>
+                            </StackPanel>
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </GroupBox>
+            </Grid>
+
+            <!-- ===== FOOTER ===== -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,12,0,0">
+                <TextBlock x:Name="SettingsStatusTextBlock" Text="Ready"
+                           FontSize="13" Foreground="#FF666666" VerticalAlignment="Center"/>
+            </StackPanel>
+
+        </Grid>
+    </ScrollViewer>
+</Page>

@@ -103,7 +103,7 @@ namespace SMBApp.Services
         /// </summary>
         /// <param name="uncPath">Full UNC path (e.g., \\server\share\folder)</param>
         /// <returns>Server path (e.g., \\server)</returns>
-        private string GetServerPath(string uncPath)
+        public string GetServerPath(string uncPath)
         {
             if (string.IsNullOrEmpty(uncPath) || !uncPath.StartsWith(@"\\"))
                 return uncPath;

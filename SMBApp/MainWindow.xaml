@@ -12,15 +12,9 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Navigation Bar -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Background="#FF333333" Height="40">
-            <Button Content="SMB Connection" Click="NavSMBPage_Click"
-                    Width="140" Margin="5,5" Foreground="White" Background="#FF555555"
-                    BorderThickness="0" FontWeight="SemiBold"/>
-            <Button Content="Returns Deployment" Click="NavReturnsDeploymentPage_Click"
-                    Width="160" Margin="5,5" Foreground="White" Background="#FF555555"
-                    BorderThickness="0" FontWeight="SemiBold"/>
-        </StackPanel>
+        <!-- Navigation Bar — populated dynamically from config -->
+        <StackPanel Grid.Row="0" x:Name="NavBar"
+                    Orientation="Horizontal" Background="#FF333333" Height="40"/>
 
         <Frame Grid.Row="1" x:Name="MainFrame" NavigationUIVisibility="Hidden"/>
     </Grid>

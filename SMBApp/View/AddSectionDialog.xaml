@@ -1,0 +1,60 @@
+<Window x:Class="SMBApp.View.AddSectionDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Add Deployment Section" Height="300" Width="420"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        ShowInTaskbar="False">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.Row="0" Grid.ColumnSpan="2" 
+                   Text="Add a New Deployment Section" 
+                   FontSize="16" FontWeight="Bold" Margin="0,0,0,16"/>
+
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="Section Key:" 
+                   VerticalAlignment="Center" Margin="0,0,10,10" FontWeight="SemiBold"/>
+        <TextBox Grid.Row="1" Grid.Column="1" x:Name="SectionKeyTextBox"
+                 Height="28" VerticalContentAlignment="Center" Margin="0,0,0,10"
+                 ToolTip="Unique identifier used in folder names (e.g., Frontend, Api, Scheduler)"/>
+
+        <TextBlock Grid.Row="2" Grid.Column="0" Text="Section Title:" 
+                   VerticalAlignment="Center" Margin="0,0,10,10" FontWeight="SemiBold"/>
+        <TextBox Grid.Row="2" Grid.Column="1" x:Name="SectionTitleTextBox"
+                 Height="28" VerticalContentAlignment="Center" Margin="0,0,0,10"
+                 ToolTip="Display title shown in the UI (e.g., Returns Frontend Section)"/>
+
+        <TextBlock Grid.Row="3" Grid.Column="0" Text="IIS Website:" 
+                   VerticalAlignment="Center" Margin="0,0,10,10" FontWeight="SemiBold"/>
+        <TextBox Grid.Row="3" Grid.Column="1" x:Name="IISWebsiteTextBox"
+                 Height="28" VerticalContentAlignment="Center" Margin="0,0,0,10"
+                 ToolTip="Default IIS website name (can be changed later)"/>
+
+        <TextBlock Grid.Row="4" Grid.Column="0" Text="Env/Config File:" 
+                   VerticalAlignment="Center" Margin="0,0,10,10" FontWeight="SemiBold"/>
+        <TextBox Grid.Row="4" Grid.Column="1" x:Name="EnvFileNameTextBox"
+                 Height="28" VerticalContentAlignment="Center" Margin="0,0,0,10"
+                 Text="appsettings.json"
+                 ToolTip="Config file to backup during deployment (e.g., .env, appsettings.json)"/>
+
+        <StackPanel Grid.Row="6" Grid.ColumnSpan="2" 
+                    Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Add" Click="AddButton_Click"
+                    Width="90" Height="30" Margin="0,0,8,0"
+                    Background="#FF4CAF50" Foreground="White" FontWeight="SemiBold"/>
+            <Button Content="Cancel" Click="CancelButton_Click"
+                    Width="90" Height="30" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>
