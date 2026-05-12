@@ -38,6 +38,7 @@ namespace IISDeployer.View.Controls
         // Section config
         private string _sectionKey = string.Empty;
         private string _envFileName = string.Empty;
+        private string _subFolder = string.Empty;
 
         // File selection state
         private string _parentSourceFolder = string.Empty;
@@ -136,6 +137,7 @@ namespace IISDeployer.View.Controls
             _sectionKey = config.SectionKey;
             SectionTitleTextBlock.Text = config.SectionTitle;
             _envFileName = config.EnvFileName;
+            _subFolder = config.SubFolder;
 
             if (!string.IsNullOrWhiteSpace(config.ParentSourceFolder))
             {
@@ -172,7 +174,8 @@ namespace IISDeployer.View.Controls
                 ParentSourceFolder = _parentSourceFolder,
                 SelectedPaths = new List<string>(_selectedPaths),
                 IISWebsiteName = GetIISWebsiteName(),
-                EnvFileName = _envFileName
+                EnvFileName = _envFileName,
+                SubFolder = _subFolder
             };
         }
 
@@ -653,6 +656,8 @@ namespace IISDeployer.View.Controls
 
                 UpdateSectionStatus("Step 4: Backing up config file...");
                 string websitePhysicalPath = await _iisService.GetWebsitePhysicalPathAsync(_serverName, iisWebsiteName);
+                if (!string.IsNullOrWhiteSpace(_subFolder))
+                    websitePhysicalPath = Path.Combine(websitePhysicalPath, _subFolder);
                 if (!string.IsNullOrWhiteSpace(_envFileName))
                 {
                     string envFilePath = Path.Combine(websitePhysicalPath, _envFileName);
