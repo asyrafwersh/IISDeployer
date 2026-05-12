@@ -36,5 +36,13 @@ namespace IISDeployer.Models
         /// The environment/config file name to backup during deployment (e.g., ".env", "appsettings.json")
         /// </summary>
         public string EnvFileName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Optional sub-folder under the IIS website's physical path to deploy into.
+        /// Use when multiple sections target the same IIS website but live in different
+        /// sub-applications (e.g. Identity at "identity", WebAPI at "api", Web at root "").
+        /// Empty string means deploy at the website root.
+        /// </summary>
+        public string SubFolder { get; set; } = string.Empty;
     }
 }

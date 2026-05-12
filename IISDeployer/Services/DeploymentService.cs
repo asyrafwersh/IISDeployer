@@ -340,7 +340,7 @@ namespace IISDeployer.Services
                 process.WaitForExit();
 
                 if (process.ExitCode != 0 && !string.IsNullOrWhiteSpace(lastError))
-                    throw new InvalidOperationException($"PowerShell command failed: {lastError}");
+                    throw new InvalidOperationException(TranslateRemoteError(serverName, lastError));
             });
         }
 
@@ -385,11 +385,37 @@ namespace IISDeployer.Services
 
                 if (process.ExitCode != 0 && !string.IsNullOrWhiteSpace(error))
                 {
-                    throw new InvalidOperationException($"PowerShell command failed: {error}");
+                    throw new InvalidOperationException(TranslateRemoteError(serverName, error));
                 }
 
                 return output;
             });
+        }
+
+        /// <summary>
+        /// Converts the raw PowerShell stderr stream into a single-line, actionable message
+        /// for the most common WinRM/PSRemoting failure modes. Falls back to the raw error.
+        /// </summary>
+        private static string TranslateRemoteError(string serverName, string error)
+        {
+            if (error.Contains("ServerNotTrusted", StringComparison.OrdinalIgnoreCase) ||
+                error.Contains("the destination machine must be added to the", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"WinRM rejected '{serverName}' because it is not in this client's TrustedHosts. " +
+                       $"Run on this machine in elevated PowerShell: " +
+                       $"Set-Item WSMan:\\localhost\\Client\\TrustedHosts -Value '{serverName}' -Force -Concatenate";
+            }
+            if (error.Contains("Access is denied", StringComparison.OrdinalIgnoreCase) ||
+                error.Contains("AccessDenied", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"WinRM authentication to '{serverName}' was denied. Verify the username/password and that the account is a member of the Remote Management Users or Administrators group on the target.";
+            }
+            if (error.Contains("cannot find the computer", StringComparison.OrdinalIgnoreCase) ||
+                error.Contains("NetworkPathNotFound", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"WinRM could not reach '{serverName}'. Check that the host is online, that port 5985 is open, and that PSRemoting is enabled on the target (Enable-PSRemoting -Force).";
+            }
+            return $"PowerShell command failed: {error}";
         }
 
         /// <summary>

@@ -100,19 +100,23 @@ Get-Service WinRM
 ```
 The status should show `Running`.
 
-**Step 3: Allow the client machine as a trusted host** *(if not on a domain)*
+**Step 3: Add the target server to the client's TrustedHosts** *(if not on a domain)*
 
-If the client and server are in a **Workgroup** (not domain-joined), you need to add the client machine to the trusted hosts list on the server:
+If the client and server are in a **Workgroup** (not domain-joined), the **client machine** (where IISDeployer runs) must list the **target server** in its TrustedHosts. Run on the **client** in elevated PowerShell:
 
 ```powershell
-# Replace <ClientMachineNameOrIP> with the actual client machine name or IP
-Set-Item WSMan:\localhost\Client\TrustedHosts -Value "<ClientMachineNameOrIP>" -Force
+# Replace <ServerNameOrIP> with the value used in your Network Path
+# (e.g. DESKTOP-3GO5301 if the path is \\DESKTOP-3GO5301\Deployment).
+# The name MUST match exactly — IP and hostname are separate entries.
+Set-Item WSMan:\localhost\Client\TrustedHosts -Value "<ServerNameOrIP>" -Force -Concatenate
 
 # Or to trust ALL hosts (less secure, use only in isolated/trusted networks):
 Set-Item WSMan:\localhost\Client\TrustedHosts -Value "*" -Force
 ```
 
-**Step 4: Verify the trusted hosts list**
+> ⚠️ TrustedHosts entries must match the exact form used by the app. If your Network Path is `\\DESKTOP-3GO5301\Deployment` then add `DESKTOP-3GO5301`, not just the IP — otherwise WinRM rejects with `ServerNotTrusted` even though the SMB connection works.
+
+**Step 4: Verify the trusted hosts list (on the client)**
 ```powershell
 Get-Item WSMan:\localhost\Client\TrustedHosts
 ```
